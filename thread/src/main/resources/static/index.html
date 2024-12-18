@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Service</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #toggleButton {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #loadingIndicator {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<h1>Управление вставкой сообщений</h1>
+<button id="toggleButton">Загрузка...</button>
+<div id="loadingIndicator">Загрузка...</div>
+
+<script>
+    // При загрузке страницы проверяем состояние
+    window.onload = function() {
+        checkThreadState();
+    }
+
+    function checkThreadState() {
+        showLoadingIndicator();
+        fetch('/messages/state', { method: 'GET' })
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка сети');
+                return response.json();
+            })
+            .then(data => {
+                const toggleButton = document.getElementById('toggleButton');
+                if (data.isRunning) {
+                    toggleButton.textContent = "Остановить вставку";
+                    toggleButton.dataset.state = 'running';
+                } else {
+                    toggleButton.textContent = "Запустить вставку";
+                    toggleButton.dataset.state = 'stopped';
+                }
+            })
+            .catch(error => alert('Ошибка при получении состояния: ' + error.message))
+            .finally(hideLoadingIndicator);
+    }
+
+    document.getElementById('toggleButton').onclick = function() {
+        const currentState = this.dataset.state;
+        showLoadingIndicator();
+
+        const url = currentState === 'stopped' ? '/messages/start' : '/messages/stop';
+
+        fetch(url, { method: 'POST' })
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка сети');
+                return response.text();
+            })
+            .then(data => {
+                alert(data);
+                this.textContent = currentState === 'stopped' ? "Остановить вставку" : "Запустить вставку";
+                this.dataset.state = currentState === 'stopped' ? 'running' : 'stopped';
+            })
+            .catch(error => alert('Ошибка при изменении состояния: ' + error.message))
+            .finally(hideLoadingIndicator);
+    };
+
+    function showLoadingIndicator() {
+        document.getElementById('loadingIndicator').style.display = 'block';
+    }
+
+    function hideLoadingIndicator() {
+        document.getElementById('loadingIndicator').style.display = 'none';
+    }
+</script>
+</body>
+</html>
+
