@@ -7,78 +7,91 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            padding: 20px;
         }
-        #toggleButton {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        #loadingIndicator {
+        #loading {
             display: none;
             margin-top: 10px;
+            font-style: italic;
+        }
+        button:disabled {
+            background-color: gray;
+            cursor: not-allowed;
         }
     </style>
 </head>
 <body>
 <h1>Управление вставкой сообщений</h1>
-<button id="toggleButton">Загрузка...</button>
-<div id="loadingIndicator">Загрузка...</div>
+<button id="toggleButton">Запустить вставку</button>
+<div id="loading">Загрузка...</div>
 
 <script>
-    // При загрузке страницы проверяем состояние
-    window.onload = function() {
-        checkThreadState();
+    let isRunning;
+
+    if (localStorage.getItem('messageServiceRunning') === 'true') {
+        isRunning = true;
+        document.getElementById('toggleButton').textContent = "Остановить вставку";
+    } else {
+        isRunning = false;
+        document.getElementById('toggleButton').textContent = "Запустить вставку";
     }
 
-    function checkThreadState() {
-        showLoadingIndicator();
-        fetch('/messages/state', { method: 'GET' })
-            .then(response => {
-                if (!response.ok) throw new Error('Ошибка сети');
-                return response.json();
-            })
+    function checkStatus() {
+        fetch('/messages/status')
+            .then(response => response.text())
             .then(data => {
-                const toggleButton = document.getElementById('toggleButton');
-                if (data.isRunning) {
-                    toggleButton.textContent = "Остановить вставку";
-                    toggleButton.dataset.state = 'running';
-                } else {
-                    toggleButton.textContent = "Запустить вставку";
-                    toggleButton.dataset.state = 'stopped';
+                const serverRunning = data.includes("running");
+                if (serverRunning !== isRunning) {
+                    localStorage.setItem('messageServiceRunning', String(serverRunning));
+                    isRunning = serverRunning;
+                    document.getElementById('toggleButton').textContent = isRunning ? "Остановить вставку" : "Запустить вставку";
                 }
             })
-            .catch(error => alert('Ошибка при получении состояния: ' + error.message))
-            .finally(hideLoadingIndicator);
+            .catch(error => {
+                console.error("Ошибка при получении статуса:", error);
+            });
     }
+
+    function sendRequest(url, method) {
+        const loadingIndicator = document.getElementById('loading');
+        loadingIndicator.style.display = 'block';
+
+        return fetch(url, { method: method })
+            .then(response => response.text())
+            .finally(() => loadingIndicator.style.display = 'none');
+    }
+
+    checkStatus();
 
     document.getElementById('toggleButton').onclick = function() {
-        const currentState = this.dataset.state;
-        showLoadingIndicator();
+        this.disabled = true;
 
-        const url = currentState === 'stopped' ? '/messages/start' : '/messages/stop';
-
-        fetch(url, { method: 'POST' })
-            .then(response => {
-                if (!response.ok) throw new Error('Ошибка сети');
-                return response.text();
-            })
-            .then(data => {
-                alert(data);
-                this.textContent = currentState === 'stopped' ? "Остановить вставку" : "Запустить вставку";
-                this.dataset.state = currentState === 'stopped' ? 'running' : 'stopped';
-            })
-            .catch(error => alert('Ошибка при изменении состояния: ' + error.message))
-            .finally(hideLoadingIndicator);
+        if (!isRunning) {
+            sendRequest('/messages/start', 'POST')
+                .then(data => {
+                    alert(data);
+                    this.textContent = "Остановить вставку";
+                    isRunning = true;
+                    localStorage.setItem('messageServiceRunning', 'true');
+                })
+                .catch(error => {
+                    alert("Ошибка: Не удалось выполнить запрос. Пожалуйста, попробуйте позже.");
+                })
+                .finally(() => this.disabled = false);
+        } else {
+            sendRequest('/messages/stop', 'POST')
+                .then(data => {
+                    alert(data);
+                    this.textContent = "Запустить вставку";
+                    isRunning = false;
+                    localStorage.removeItem('messageServiceRunning');
+                })
+                .catch(error => {
+                    alert("Ошибка: Не удалось выполнить запрос. Пожалуйста, попробуйте позже.");
+                })
+                .finally(() => this.disabled = false);
+        }
     };
-
-    function showLoadingIndicator() {
-        document.getElementById('loadingIndicator').style.display = 'block';
-    }
-
-    function hideLoadingIndicator() {
-        document.getElementById('loadingIndicator').style.display = 'none';
-    }
 </script>
 </body>
 </html>

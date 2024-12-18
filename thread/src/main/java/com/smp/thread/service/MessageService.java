@@ -1,84 +1,64 @@
 package com.smp.thread.service;
 
-import com.smp.thread.entity.MessageEntity;
+import com.smp.thread.exception.CountMessageException;
+import com.smp.thread.exception.InsertMessageException;
 import com.smp.thread.exception.MessageServiceException;
-import com.smp.thread.repository.MessageRepository;
-import jakarta.servlet.http.HttpSession;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-@Slf4j
+import java.util.concurrent.TimeUnit;
 @Service
 public class MessageService {
 
     @Autowired
-    private MessageRepository messageRepository;
+    private InsertMessageService insertMessageService;
 
-    private ExecutorService executorService = Executors.newFixedThreadPool(2);
-    private volatile boolean isRunning = false;
-    private static final int BATCH_SIZE = 100;
-    private static final long SLEEP_DURATION = 200;
-    private long lastCount = 0;
+    @Autowired
+    private CountMessageService countMessageService;
+
+    private ExecutorService executorService;
 
     public void startInsertMessages() {
-        if (!isRunning) {
-            isRunning = true;
-            executorService.submit(this::insertMessages);
-            executorService.submit(this::countMessages);
+        executorService = Executors.newFixedThreadPool(2);
+        try {
+            executorService.submit(() -> {
+                try {
+                    insertMessageService.start();
+                } catch (RuntimeException e) {
+                    throw new InsertMessageException("Ошибка при вставке сообщений: " + e.getMessage());
+                }
+            });
+            executorService.submit(() -> {
+                try {
+                    countMessageService.start();
+                } catch (RuntimeException e) {
+                    throw new CountMessageException("Ошибка при подсчете сообщений: " + e.getMessage());
+                }
+            });
+        } catch (RuntimeException e) {
+            throw new MessageServiceException("Не удалось запустить потоки для вставки и подсчета сообщений.");
         }
     }
 
     public void stopInsertMessages() {
-        isRunning = false;
-        executorService.shutdownNow();
-    }
-
-    private void insertMessages() {
-        while (isRunning) {
-            List<MessageEntity> messages = createMessages();
-            try {
-                messageRepository.saveAll(messages);
-            } catch (RuntimeException e) {
-                throw new MessageServiceException("Ошибка при сохранении сообщений", e);
-            }
-            sleep();
-        }
-    }
-
-    private List<MessageEntity> createMessages() {
-        List<MessageEntity> messages = new ArrayList<>();
-        for (int i = 0; i < BATCH_SIZE; i++) {
-            MessageEntity message = new MessageEntity();
-            message.setMessage("Message " + (i + 1));
-            messages.add(message);
-        }
-        return messages;
-    }
-
-    private void countMessages() {
-        while (isRunning) {
-            long count = messageRepository.count();
-            if (count != lastCount) {
-                log.info("Количество записей в таблице: {}", count);
-                lastCount = count;
-            }
-            sleep();
-        }
-    }
-
-    private void sleep() {
         try {
-            Thread.sleep(SLEEP_DURATION);
+            insertMessageService.stop();
+            countMessageService.stop();
+
+            executorService.shutdownNow();
+
+            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+                throw new MessageServiceException("Потоки не завершились за отведенное время и были принудительно остановлены.");
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
+
+    public boolean isRunning() {
+        return insertMessageService.isRunning();
+    }
 }
-
-
