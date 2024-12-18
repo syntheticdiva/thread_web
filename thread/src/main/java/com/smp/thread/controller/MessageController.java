@@ -15,21 +15,39 @@ public class MessageController {
     @Autowired
     private MessageService messageService;
 
-    @PostMapping("/start")
-    public ResponseEntity<String> startInsert() {
-        messageService.startInsertMessages();
-        return ResponseEntity.ok("Insert started");
+    @PostMapping("/start1")
+    public ResponseEntity<String> startInsert1() {
+        messageService.startInsertMessages(1);
+        return ResponseEntity.ok("Insert 1 started");
     }
 
-    @PostMapping("/stop")
-    public ResponseEntity<String> stopInsert() {
-        messageService.stopInsertMessages();
-        return ResponseEntity.ok("Insert stopped");
+    @PostMapping("/stop1")
+    public ResponseEntity<String> stopInsert1() {
+        messageService.stopInsertMessages(1);
+        return ResponseEntity.ok("Insert 1 stopped");
     }
 
-    @GetMapping("/status")
-    public ResponseEntity<String> getStatus() {
-        boolean isRunning = messageService.isRunning();
-        return ResponseEntity.ok(isRunning ? "Insert is running" : "Insert is stopped");
+    @PostMapping("/start2")
+    public ResponseEntity<String> startInsert2() {
+        messageService.startInsertMessages(2);
+        return ResponseEntity.ok("Insert 2 started");
+    }
+
+    @PostMapping("/stop2")
+    public ResponseEntity<String> stopInsert2() {
+        messageService.stopInsertMessages(2);
+        return ResponseEntity.ok("Insert 2 stopped");
+    }
+
+    @GetMapping("/status1")
+    public ResponseEntity<String> getStatus1() {
+        boolean isRunning = messageService.isRunning(1);
+        return ResponseEntity.ok(isRunning ? "Insert 1 is running" : "Insert 1 is stopped");
+    }
+
+    @GetMapping("/status2")
+    public ResponseEntity<String> getStatus2() {
+        boolean isRunning = messageService.isRunning(2);
+        return ResponseEntity.ok(isRunning ? "Insert 2 is running" : "Insert 2 is stopped");
     }
 }

@@ -21,9 +21,10 @@ public class InsertMessageService {
 
     private static final int BATCH_SIZE = 100;
     private static final long SLEEP_DURATION = 200;
-    private final AtomicBoolean isRunning = new AtomicBoolean(false);
+    private final AtomicBoolean isRunning1 = new AtomicBoolean(false);
+    private final AtomicBoolean isRunning2 = new AtomicBoolean(false);
 
-    public void insertMessages() {
+    public void insertMessages(AtomicBoolean isRunning) {
         while (isRunning.get()) {
             List<MessageEntity> messages = createMessages();
             try {
@@ -35,17 +36,26 @@ public class InsertMessageService {
         }
     }
 
-    public void start() {
-        isRunning.set(true);
-        insertMessages();
+    public void start(int threadNumber) {
+        if (threadNumber == 1) {
+            isRunning1.set(true);
+            insertMessages(isRunning1);
+        } else if (threadNumber == 2) {
+            isRunning2.set(true);
+            insertMessages(isRunning2);
+        }
     }
 
-    public void stop() {
-        isRunning.set(false);
+    public void stop(int threadNumber) {
+        if (threadNumber == 1) {
+            isRunning1.set(false);
+        } else if (threadNumber == 2) {
+            isRunning2.set(false);
+        }
     }
 
-    public boolean isRunning() {
-        return isRunning.get();
+    public boolean isRunning(int threadNumber) {
+        return threadNumber == 1 ? isRunning1.get() : isRunning2.get();
     }
 
     private List<MessageEntity> createMessages() {
