@@ -22,57 +22,31 @@ public class MessageService {
     @Autowired
     private MessageRepository messageRepository;
 
-    private ExecutorService executorService1;
-    private ExecutorService executorService2;
+
+    private ExecutorService[] executorService = new ExecutorService[2];
 
     public void startInsertMessages(int threadNumber) {
-        if (threadNumber == 1) {
-            executorService1 = Executors.newFixedThreadPool(2);
-            executorService1.submit(() -> {
-                try {
-                    insertMessageService.start(threadNumber);
-                } catch (RuntimeException e) {
-                    throw new InsertMessageException("Ошибка при вставке сообщений в потоке 1: " + e.getMessage());
-                }
-            });
-
-            executorService1.submit(() -> {
-                try {
-                    countMessageService.start();
-                } catch (RuntimeException e) {
-                    throw new CountMessageException("Ошибка при подсчете сообщений: " + e.getMessage());
-                }
-            });
-        } else if (threadNumber == 2) {
-            executorService2 = Executors.newSingleThreadExecutor();
-            executorService2.submit(() -> {
-                try {
-                    insertMessageService.start(threadNumber);
-                } catch (RuntimeException e) {
-                    throw new InsertMessageException("Ошибка при вставке сообщений в потоке 2: " + e.getMessage());
-                }
-            });
-        }
+        executorService[threadNumber] = Executors.newSingleThreadExecutor();
+        executorService[threadNumber].submit(() -> {
+            try {
+                insertMessageService.start(threadNumber);
+            } catch (RuntimeException e) {
+                throw new InsertMessageException("Ошибка при вставке сообщений в потоке " + threadNumber + ": " + e.getMessage());
+            }
+        });
     }
+
     public void stopInsertMessages(int threadNumber) {
         try {
             insertMessageService.stop(threadNumber);
-
-            if (threadNumber == 1) {
-                countMessageService.stop();
-                executorService1.shutdownNow();
-                if (!executorService1.awaitTermination(60, TimeUnit.SECONDS)) {
-                    executorService1.shutdownNow();
-                }
-            } else if (threadNumber == 2) {
-                executorService2.shutdownNow();
-                if (!executorService2.awaitTermination(60, TimeUnit.SECONDS)) {
-                    executorService2.shutdownNow();
-                }
-
-                long count = messageRepository.count();
-                log.debug("Вставлено записей во втором потоке: {}", count);
+            executorService[threadNumber].shutdownNow();
+            if (!executorService[threadNumber].awaitTermination(60, TimeUnit.SECONDS)) {
+                executorService[threadNumber].shutdownNow();
             }
+
+            long count = messageRepository.count();
+            log.debug("Вставлено записей во втором потоке: {}", count);
+
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -85,3 +59,62 @@ public class MessageService {
         return insertMessageService.isRunning(threadNumber);
     }
 }
+
+
+//    private ExecutorService executorService1;
+////    private ExecutorService executorService2;
+
+//    public void stopInsertMessages(int threadNumber) {
+//        try {
+//            insertMessageService.stop(threadNumber);
+//
+//            if (threadNumber == 1) {
+////                countMessageService.stop();
+//                executorService1.shutdownNow();
+//                if (!executorService1.awaitTermination(60, TimeUnit.SECONDS)) {
+//                    executorService1.shutdownNow();
+//                }
+//            } else if (threadNumber == 2) {
+//                executorService2.shutdownNow();
+//                if (!executorService2.awaitTermination(60, TimeUnit.SECONDS)) {
+//                    executorService2.shutdownNow();
+//                }
+//
+//                long count = messageRepository.count();
+//                log.debug("Вставлено записей во втором потоке: {}", count);
+//            }
+//        } catch (InterruptedException e) {
+//            Thread.currentThread().interrupt();
+//        }
+//    }
+
+
+////    public void startInsertMessages(int threadNumber) {
+////        if (threadNumber == 1) {
+////            executorService1 = Executors.newFixedThreadPool(2);
+////            executorService1.submit(() -> {
+////                try {
+////                    insertMessageService.start(threadNumber);
+////                } catch (RuntimeException e) {
+////                    throw new InsertMessageException("Ошибка при вставке сообщений в потоке 1: " + e.getMessage());
+////                }
+////            });
+////
+////            executorService1.submit(() -> {
+////                try {
+////                    countMessageService.start();
+////                } catch (RuntimeException e) {
+////                    throw new CountMessageException("Ошибка при подсчете сообщений: " + e.getMessage());
+////                }
+////            });
+////        } else if (threadNumber == 2) {
+////            executorService2 = Executors.newSingleThreadExecutor();
+////            executorService2.submit(() -> {
+////                try {
+////                    insertMessageService.start(threadNumber);
+////                } catch (RuntimeException e) {
+////                    throw new InsertMessageException("Ошибка при вставке сообщений в потоке 2: " + e.getMessage());
+////                }
+////            });
+////        }
+////    }

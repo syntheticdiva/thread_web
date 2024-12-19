@@ -21,8 +21,9 @@ public class InsertMessageService {
 
     private static final int BATCH_SIZE = 100;
     private static final long SLEEP_DURATION = 200;
-    private final AtomicBoolean isRunning1 = new AtomicBoolean(false);
-    private final AtomicBoolean isRunning2 = new AtomicBoolean(false);
+    private final AtomicBoolean isRunning[] = new AtomicBoolean[]{
+            new AtomicBoolean(false),
+            new AtomicBoolean(false)};
 
     public void insertMessages(AtomicBoolean isRunning) {
         while (isRunning.get()) {
@@ -35,27 +36,18 @@ public class InsertMessageService {
             sleep();
         }
     }
-
     public void start(int threadNumber) {
-        if (threadNumber == 1) {
-            isRunning1.set(true);
-            insertMessages(isRunning1);
-        } else if (threadNumber == 2) {
-            isRunning2.set(true);
-            insertMessages(isRunning2);
-        }
+        isRunning[threadNumber].set(true);
+        insertMessages(isRunning[threadNumber]);
     }
 
     public void stop(int threadNumber) {
-        if (threadNumber == 1) {
-            isRunning1.set(false);
-        } else if (threadNumber == 2) {
-            isRunning2.set(false);
-        }
+        isRunning[threadNumber].set(false);
     }
 
+
     public boolean isRunning(int threadNumber) {
-        return threadNumber == 1 ? isRunning1.get() : isRunning2.get();
+        return isRunning[threadNumber].get();
     }
 
     private List<MessageEntity> createMessages() {
@@ -76,3 +68,27 @@ public class InsertMessageService {
         }
     }
 }
+
+
+//    public boolean isRunning(int threadNumber) {
+//        return threadNumber == 1 ? isRunning1.get() : isRunning2.get();
+//    }
+
+
+//    public void stop(int threadNumber) {
+//        if (threadNumber == 1) {
+//            isRunning1.set(false);
+//        } else if (threadNumber == 2) {
+//            isRunning2.set(false);
+//        }
+//    }
+
+//    public void start(int threadNumber) {
+//        if (threadNumber == 1) {
+//            isRunning1.set(true);
+//            insertMessages(isRunning1);
+//        } else if (threadNumber == 2) {
+//            isRunning2.set(true);
+//            insertMessages(isRunning2);
+//        }
+//    }
